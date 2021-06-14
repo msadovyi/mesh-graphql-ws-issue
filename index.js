@@ -38,7 +38,7 @@ const apolloServer = new ApolloServer({ schema, playground: true });
 // apply middleware
 apolloServer.applyMiddleware({ app });
 
-app.get('/', (req, res) => res.sendFile(path.join(__dirname, '/index.html')))
+// app.get('/', (req, res) => res.sendFile(path.join(__dirname, '/index.html')))
 
 const server = app.listen(3000, () => {
   // create and use the websocket server
