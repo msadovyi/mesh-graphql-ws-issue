@@ -1,52 +1,57 @@
-const ws = require('ws');
-const express = require('express');
-const { ApolloServer } = require('apollo-server-express');
-const { useServer } = require('graphql-ws/lib/use/ws');
-const { buildSchema } = require('graphql');
-const path = require('path');
+const { ApolloServer, PubSub, gql } = require('apollo-server');
+const pubsub = new PubSub();
+const PORT = 3000;
 
-// Construct a schema, using GraphQL schema language
-const schema = buildSchema(`
+// Schema definition
+const typeDefs = gql`
   type Query {
-    hello: String
+    currentNumber: Int
   }
-  type Subscription {
-    greetings: String
-  }
-`);
 
-// The roots provide resolvers for each GraphQL operation
-const roots = {
-  query: {
-    hello: () => 'Hello World!',
+  type Subscription {
+    numberIncremented: Int
+  }
+`;
+
+// Resolver map
+const resolvers = {
+  Query: {
+    currentNumber() {
+      return currentNumber;
+    }
   },
-  subscription: {
-    greetings: async function* sayHiIn5Languages() {
-      for (const hi of ['Hi', 'Bonjour', 'Hola', 'Ciao', 'Zdravo']) {
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        yield { greetings: hi };
-      }
+  Subscription: {
+    numberIncremented: {
+      subscribe: () => pubsub.asyncIterator(['NUMBER_INCREMENTED']),
+    },
+  }
+};
+
+const server = new ApolloServer({
+  typeDefs,
+  resolvers,
+  subscriptions: {
+    path: '/graphql',
+    onConnect: (connectionParams, webSocket, context) => {
+      console.log('Client connected');
+    },
+    onDisconnect: (webSocket, context) => {
+      console.log('Client disconnected')
     },
   },
-};
-// create express
-const app = express();
-
-// create apollo server
-const apolloServer = new ApolloServer({ schema, playground: true });
-
-// apply middleware
-apolloServer.applyMiddleware({ app });
-
-app.get('/', (req, res) => res.sendFile(path.join(__dirname, '/index.html')))
-
-const server = app.listen(3000, () => {
-  // create and use the websocket server
-  const wsServer = new ws.Server({
-    server,
-    path: '/graphql',
-  });
-
-  useServer({ schema, roots }, wsServer);
-  console.log('Source listening on port 3000...');
 });
+
+let currentNumber = 0;
+function incrementNumber() {
+  currentNumber++;
+  pubsub.publish('NUMBER_INCREMENTED', { numberIncremented: currentNumber });
+  setTimeout(incrementNumber, 1000);
+}
+
+server.listen(PORT).then(() => {
+  console.log(`🚀 Subscription endpoint ready at ws://localhost:${PORT}${server.subscriptionsPath}`)
+  console.log('Query at studio.apollographql.com/dev')
+});
+
+// Start incrementing
+incrementNumber();

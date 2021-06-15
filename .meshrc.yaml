@@ -3,3 +3,4 @@ sources:
     handler:
       graphql:
         endpoint: "http://localhost:3000/graphql"
+        useWebSocketLegacyProtocol: true
